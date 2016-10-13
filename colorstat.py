@@ -11,22 +11,32 @@ style.use('ggplot')
 
 
 def _show(fig):
-    # running = QtGui.QApplication.instance() is not None
-    # QtGui.QApplication.instance()
-    # if not running:
-    #     app = QtGui.QApplication([])
+    """
+    show image on canvas
+    :param fig: matplotlib.figure.Figure instance
+    :return: matplotlib.backends.backend_qt4agg.FigureCanvasQTAgg instance
+    """
 
     w = FigureCanvas(fig)
-    WIDGETS.append(w)
-    w.show()
 
-    # if not running:
-    #     raise SystemExit(app.exec_())
+    # store instance to prevent garbage collection
+    # otherwise widget is not sticking
+    WIDGETS.append(w)
+
+    # show the widget
+    w.show()
 
     return w
 
 
 def geometric_median(X, eps=1e-5):
+    """
+    calculate the geometric median as implemented in https://stackoverflow.com/a/30305181
+    :param X: 2D dataset
+    :param eps:
+    :return: median value from X
+    """
+
     y = np.mean(X, 0)
 
     while True:
@@ -56,6 +66,7 @@ def geometric_median(X, eps=1e-5):
 
 
 def _load_fig(filename):
+    """load a figure using PIL.Image including aspect ratio"""
     im = Image.open(filename)
     w, h = im.size
     aspect = h/w
@@ -63,12 +74,14 @@ def _load_fig(filename):
 
 
 def _load_array(filename):
+    """load a figure as multidimensional color ndarray including aspect ratio"""
     im, aspect = _load_fig(filename)
     arr = np.rollaxis(np.array(im), 2, 0)
     return arr, aspect
 
 
 def show(filename, size=10.):
+    """show the figure"""
     im, aspect = _load_fig(filename)
     fig = Figure(figsize=(size, size*aspect))
     ax = fig.add_axes([0, 0, 1, 1])
@@ -78,6 +91,7 @@ def show(filename, size=10.):
 
 
 def split(filename, size=10.):
+    """split the figure into color bands"""
     arr, aspect = _load_array(filename)
 
     fig = Figure(figsize=(size, size*aspect))
@@ -92,6 +106,7 @@ def split(filename, size=10.):
 
 
 def hist(filename):
+    """make histograms of r, g, b, a"""
     arr, aspect = _load_array(filename)
 
     fig = Figure(figsize=(10, 8))
@@ -112,6 +127,7 @@ def hist(filename):
 
 
 def main_colors(filename, N=5, sample_size=100000, size=4):
+    """extract the main colors of the image using KMeans and geometric median"""
     arr, aspect = _load_array(filename)
 
     arr_flat = arr.reshape(arr.shape[0], -1)[:3, :]
@@ -134,6 +150,7 @@ def main_colors(filename, N=5, sample_size=100000, size=4):
 
 
 def show_all(filename, N=5):
+    """execute all image functions included"""
     show(filename)
     hist(filename)
     split(filename)
@@ -146,6 +163,7 @@ if __name__ == '__main__':
     import sys
 
     def add_func_parser(subps, fn):
+        """create a subparser from a function"""
         p = subps.add_parser(fn.__name__.replace('_', '-'))
         spec = inspect.getargspec(fn)
         pos_count = len(spec.args) - len(spec.defaults or ())
@@ -165,12 +183,16 @@ if __name__ == '__main__':
     for fn in [show, show_all, hist, split, main_colors]:
         add_func_parser(subps, fn)
 
-
+    # create QT Application
     app = QtGui.QApplication([])
     WIDGETS = []
 
+    # parse arguments
     argv = sys.argv[1:]
     args = vars(parser.parse_args(argv))
+
+    # execute function
     w = args.pop('func')(**args)
 
+    # run application
     raise SystemExit(app.exec_())
